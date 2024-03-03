@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -39,17 +40,37 @@ public class RegistrationController {
 	}
 	
 	@GetMapping("/users/{id}")
-	public Optional<User> getUserByUserId(@PathVariable int id) {
-		return userRepository.findById(id);
+	public ResponseEntity<?> getUserByUserId(@PathVariable int id) {
+	    try {
+	        Optional<User> user = userRepository.findById(id);
+	        if (user.isPresent()) {
+	            APIResponse apiResponse = new APIResponse(true, "User retrieved successfully");
+	            return ResponseEntity.ok(apiResponse);
+	        } else {
+	            return ResponseEntity.notFound().build();
+	        }
+	    } catch (Exception e) {
+	        // Log the error for debugging
+	        e.printStackTrace(); // Replace with proper logging implementation
+	        // Consider returning more specific error messages based on exception type
+	        return ResponseEntity.internalServerError().build();
+	    }
 	}
 	
-	//@PostMapping("/adduser")
-	@PostMapping(path="/adduser", consumes={"application/json"})
-	public ResponseEntity<APIResponse> createNewUser(@RequestBody User user) {
-		userRepository.save(user);
-		// For demonstration purposes, just returning the user received in the request
-        APIResponse apiResponse = new APIResponse(true, "User created successfully");
-        return ResponseEntity.status(HttpStatus.OK).body(apiResponse);
+	@PostMapping(path = "/adduser", consumes = { "application/json" })
+	public ResponseEntity<APIResponse> createNewUser(@Valid @RequestBody User user) {
+	    try {
+	        userRepository.save(user);
+	        APIResponse apiResponse = new APIResponse(true, "User created successfully");
+	        return ResponseEntity.ok(apiResponse);
+	    } catch (DataIntegrityViolationException e) {
+	        // Handle unique constraint violations (e.g., duplicate email)
+	        return ResponseEntity.badRequest().body(new APIResponse(false, "User creation failed: Email already exists"));
+	    } catch (Exception e) {
+	        // Log the error for debugging
+	        e.printStackTrace(); // Replace with proper logging implementation
+	        return ResponseEntity.internalServerError().body(new APIResponse(false, "Internal server error"));
+	    }
 	}
 	
 	@PutMapping(path = "/update/{id}", consumes = { "application/json" })
